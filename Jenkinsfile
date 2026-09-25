@@ -14,8 +14,15 @@ pipeline {
                 sh '''
                     echo "===== NutriFlow Project ====="
                     pwd
-                    echo "===== Files ====="
+
+                    echo "===== Project Files ====="
                     ls -la
+
+                    echo "===== Backend ====="
+                    ls -la backend
+
+                    echo "===== Frontend ====="
+                    ls -la frontend
                 '''
             }
         }
@@ -23,13 +30,15 @@ pipeline {
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('SonarQube') {
-                    sh '''
-                        sonar-scanner \
-                          -Dsonar.projectKey=nutriflow \
-                          -Dsonar.projectName=NutriFlow \
-                          -Dsonar.sources=backend,frontend \
-                          -Dsonar.exclusions=**/node_modules/**,**/dist/**,**/build/**
-                    '''
+                    withSonarQubeScannerEnv('SonarQubeScanner') {
+                        sh '''
+                            sonar-scanner \
+                              -Dsonar.projectKey=nutriflow \
+                              -Dsonar.projectName=NutriFlow \
+                              -Dsonar.sources=backend,frontend \
+                              -Dsonar.exclusions=**/node_modules/**,**/dist/**,**/build/**
+                        '''
+                    }
                 }
             }
         }
@@ -39,6 +48,9 @@ pipeline {
                 sh '''
                     echo "===== Docker Version ====="
                     docker --version
+
+                    echo "===== Docker Access ====="
+                    docker ps
                 '''
             }
         }
