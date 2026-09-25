@@ -30,14 +30,16 @@ pipeline {
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('SonarQube') {
-                    withSonarQubeScannerEnv('SonarQubeScanner') {
-                        sh '''
-                            sonar-scanner \
+                    script {
+                        def scannerHome = tool 'SonarQubeScanner'
+
+                        sh """
+                            ${scannerHome}/bin/sonar-scanner \
                               -Dsonar.projectKey=nutriflow \
                               -Dsonar.projectName=NutriFlow \
                               -Dsonar.sources=backend,frontend \
                               -Dsonar.exclusions=**/node_modules/**,**/dist/**,**/build/**
-                        '''
+                        """
                     }
                 }
             }
