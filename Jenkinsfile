@@ -27,24 +27,23 @@ pipeline {
             }
         }
 
-        stage('SonarQube Analysis') {
-            steps {
-                withSonarQubeEnv('SonarQube') {
-                    script {
-                        def scannerHome = tool 'SonarQubeScanner'
+       stage('SonarQube Analysis') {
+    steps {
+        withSonarQubeEnv('SonarQube') {
+            script {
+                def scannerHome = tool 'SonarQubeScanner'
 
-                        sh """
-                            ${scannerHome}/bin/sonar-scanner \
-                              -Dsonar.projectKey=nutriflow \
-                              -Dsonar.projectName=NutriFlow \
-                              -Dsonar.sources=backend,frontend \
-                              -Dsonar.exclusions=**/node_modules/**,**/dist/**,**/build/**
-                        """
-                    }
-                }
+                sh """
+                    ${scannerHome}/bin/sonar-scanner \
+                      -Dsonar.projectKey=NutriFlow \
+                      -Dsonar.projectName=NutriFlow \
+                      -Dsonar.sources=backend,frontend \
+                      -Dsonar.exclusions=**/node_modules/**,**/dist/**,**/build/**
+                """
             }
         }
-
+    }
+}
         stage('Verify Docker') {
             steps {
                 sh '''
