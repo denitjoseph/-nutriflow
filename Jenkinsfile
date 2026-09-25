@@ -20,6 +20,20 @@ pipeline {
             }
         }
 
+        stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv('SonarQube') {
+                    sh '''
+                        sonar-scanner \
+                          -Dsonar.projectKey=nutriflow \
+                          -Dsonar.projectName=NutriFlow \
+                          -Dsonar.sources=backend,frontend \
+                          -Dsonar.exclusions=**/node_modules/**,**/dist/**,**/build/**
+                    '''
+                }
+            }
+        }
+
         stage('Verify Docker') {
             steps {
                 sh '''
@@ -32,11 +46,11 @@ pipeline {
 
     post {
         success {
-            echo 'NutriFlow test pipeline completed successfully!'
+            echo 'NutriFlow pipeline completed successfully!'
         }
 
         failure {
-            echo 'NutriFlow test pipeline failed.'
+            echo 'NutriFlow pipeline failed.'
         }
     }
 }
