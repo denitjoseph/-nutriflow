@@ -55,6 +55,7 @@ pipeline {
                       ./backend
 
                     echo "===== Backend Docker Image ====="
+
                     docker images nutriflow-backend
                 '''
             }
@@ -71,8 +72,56 @@ pipeline {
                       ./frontend
 
                     echo "===== Frontend Docker Image ====="
+
                     docker images nutriflow-frontend
                 '''
+            }
+        }
+
+        stage('Push Images to ECR') {
+            steps {
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-ecr'
+                ]]) {
+                    sh '''
+                        echo "===== AWS CLI Version ====="
+                        aws --version
+
+                        echo "===== AWS ECR Login ====="
+
+                        aws ecr get-login-password \
+                          --region ap-south-1 | \
+                        docker login \
+                          --username AWS \
+                          --password-stdin \
+                          208805232757.dkr.ecr.ap-south-1.amazonaws.com
+
+                        echo "===== Tag Backend Image ====="
+
+                        docker tag \
+                          nutriflow-backend:latest \
+                          208805232757.dkr.ecr.ap-south-1.amazonaws.com/nutriflow-backend:latest
+
+                        echo "===== Push Backend Image ====="
+
+                        docker push \
+                          208805232757.dkr.ecr.ap-south-1.amazonaws.com/nutriflow-backend:latest
+
+                        echo "===== Tag Frontend Image ====="
+
+                        docker tag \
+                          nutriflow-frontend:latest \
+                          208805232757.dkr.ecr.ap-south-1.amazonaws.com/nutriflow-frontend:latest
+
+                        echo "===== Push Frontend Image ====="
+
+                        docker push \
+                          208805232757.dkr.ecr.ap-south-1.amazonaws.com/nutriflow-frontend:latest
+
+                        echo "===== ECR Push Completed ====="
+                    '''
+                }
             }
         }
 
@@ -82,7 +131,7 @@ pipeline {
                     echo "===== Docker Version ====="
                     docker --version
 
-                    echo "===== Docker Images ====="
+                    echo "===== NutriFlow Docker Images ====="
                     docker images | grep nutriflow
                 '''
             }
@@ -91,11 +140,11 @@ pipeline {
 
     post {
         success {
-            echo 'NutriFlow pipeline completed successfully!'
+            echo 'NutriFlow CI pipeline completed successfully!'
         }
 
         failure {
-            echo 'NutriFlow pipeline failed.'
+            echo 'NutriFlow CI pipeline failed.'
         }
     }
 }
