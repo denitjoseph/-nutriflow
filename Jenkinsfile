@@ -27,31 +27,63 @@ pipeline {
             }
         }
 
-       stage('SonarQube Analysis') {
-    steps {
-        withSonarQubeEnv('SonarQube') {
-            script {
-                def scannerHome = tool 'SonarQubeScanner'
+        stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv('SonarQube') {
+                    script {
+                        def scannerHome = tool 'SonarQubeScanner'
 
-                sh """
-                    ${scannerHome}/bin/sonar-scanner \
-                      -Dsonar.projectKey=NutriFlow \
-                      -Dsonar.projectName=NutriFlow \
-                      -Dsonar.sources=backend,frontend \
-                      -Dsonar.exclusions=**/node_modules/**,**/dist/**,**/build/**
-                """
+                        sh """
+                            ${scannerHome}/bin/sonar-scanner \
+                              -Dsonar.projectKey=NutriFlow \
+                              -Dsonar.projectName=NutriFlow \
+                              -Dsonar.sources=backend,frontend \
+                              -Dsonar.exclusions=**/node_modules/**,**/dist/**,**/build/**
+                        """
+                    }
+                }
             }
         }
-    }
-}
+
+        stage('Build Backend Docker Image') {
+            steps {
+                sh '''
+                    echo "===== Building NutriFlow Backend ====="
+
+                    docker build \
+                      -t nutriflow-backend:latest \
+                      ./backend
+
+                    echo "===== Backend Docker Image ====="
+                    docker images nutriflow-backend
+                '''
+            }
+        }
+
+        stage('Build Frontend Docker Image') {
+            steps {
+                sh '''
+                    echo "===== Building NutriFlow Frontend ====="
+
+                    docker build \
+                      --build-arg VITE_API_URL=http://localhost:8000/nutriflow \
+                      -t nutriflow-frontend:latest \
+                      ./frontend
+
+                    echo "===== Frontend Docker Image ====="
+                    docker images nutriflow-frontend
+                '''
+            }
+        }
+
         stage('Verify Docker') {
             steps {
                 sh '''
                     echo "===== Docker Version ====="
                     docker --version
 
-                    echo "===== Docker Access ====="
-                    docker ps
+                    echo "===== Docker Images ====="
+                    docker images | grep nutriflow
                 '''
             }
         }
