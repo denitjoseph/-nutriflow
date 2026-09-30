@@ -10,37 +10,50 @@ variable "project_name" {
   default     = "nutriflow"
 }
 
-variable "cluster_name" {
+variable "environment" {
+  description = "Environment name"
+  type        = string
+  default     = "dev"
+}
+
+variable "eks_cluster_name" {
   description = "EKS cluster name"
   type        = string
-  default     = "nutriflow-cluster"
+  default     = "nutriflow-eks"
+}
+
+variable "kubernetes_version" {
+  description = "Kubernetes version"
+  type        = string
+  default     = "1.33"
 }
 
 variable "node_instance_type" {
   description = "EKS worker node instance type"
   type        = string
-  default     = "t3.micro"
+  default     = "t3.medium"
 }
 
-variable "node_count" {
-  description = "Number of EKS worker nodes"
+variable "node_min_size" {
+  description = "Minimum number of EKS nodes"
   type        = number
   default     = 2
 }
 
-variable "vpc_id" {
-  description = "Existing VPC ID"
-  type        = string
-  default     = "vpc-05ec0be5ebf60d910"
+variable "node_max_size" {
+  description = "Maximum number of EKS nodes"
+  type        = number
+  default     = 3
 }
 
-variable "subnet_ids" {
-  description = "Existing subnet IDs for EKS"
-  type        = list(string)
+variable "node_desired_size" {
+  description = "Desired number of EKS nodes"
+  type        = number
+  default     = 2
+}
 
-  default = [
-    "subnet-04689b391a6a20fa3",
-    "subnet-02c157fb7d51664e7",
-    "subnet-0865acac612817608"
-  ]
+variable "vpc_cidr" {
+  description = "VPC CIDR"
+  type        = string
+  default     = "10.0.0.0/16"
 }
