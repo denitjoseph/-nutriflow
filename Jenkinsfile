@@ -1,3 +1,4 @@
+
 pipeline {
     agent any
 
@@ -24,8 +25,7 @@ pipeline {
         FRONTEND_IMAGE   = 'nutriflow-frontend'
         IMAGE_TAG        = "${BUILD_NUMBER}"
 
-        // Git repo URL without protocol for authenticated push
-        GIT_REPO_URL     = 'github.com/denitjoseph/-nutriflow.git'
+        GIT_REPO_URL    = 'github.com/denitjoseph/-nutriflow.git'
     }
 
     stages {
@@ -94,6 +94,7 @@ pipeline {
                 withSonarQubeEnv('SonarQube') {
                     script {
                         def scannerHome = tool 'SonarQubeScanner'
+
                         sh """
                             set -e
                             echo "===== Running SonarQube Scanner ====="
@@ -111,7 +112,6 @@ pipeline {
         stage('SonarQube Quality Gate') {
             steps {
                 timeout(time: 5, unit: 'MINUTES') {
-                    // Requires SonarQube webhook configured to <JENKINS_URL>/sonarqube-webhook/
                     waitForQualityGate abortPipeline: false
                 }
             }
@@ -121,6 +121,7 @@ pipeline {
             steps {
                 sh """
                     set -e
+
                     echo "===== Building Backend Docker Image ====="
                     docker build \
                       -t ${BACKEND_IMAGE}:latest \
@@ -148,6 +149,7 @@ pipeline {
             steps {
                 sh '''
                     set -e
+
                     echo "===== Scanning Backend Docker Image ====="
                     docker run --rm \
                       -v /var/run/docker.sock:/var/run/docker.sock \
@@ -173,11 +175,13 @@ pipeline {
             steps {
                 sh '''
                     set -e
+
                     echo "===== Starting NutriFlow Containers for DAST ====="
                     docker compose up -d
 
-                    echo "===== Waiting for Services to be Healthy ====="
+                    echo "===== Waiting for Services ====="
                     sleep 15
+
                     curl -fsS http://localhost:8000/nutriflow || echo "Backend ping checked"
                     curl -fsS http://localhost:5173 || echo "Frontend ping checked"
 
@@ -202,7 +206,7 @@ pipeline {
                       -r zap-frontend-report.html \
                       -I || true
 
-                    echo "===== Stopping Containers after DAST Scan ====="
+                    echo "===== Stopping DAST Test Containers ====="
                     docker compose down
                 '''
             }
@@ -210,49 +214,76 @@ pipeline {
 
         stage('Push Images to AWS ECR') {
             steps {
-                sh '''
-                    set -e
-                    echo "===== Logging into AWS ECR using EC2 IAM Role ====="
-                    aws ecr get-login-password --region ${AWS_REGION} | \
-                      docker login --username AWS --password-stdin ${ECR_REGISTRY}
+                withCredentials([
+                    string(
+                        credentialsId: 'aws-access-key-id',
+                        variable: 'AWS_ACCESS_KEY_ID'
+                    ),
+                    string(
+                        credentialsId: 'aws-secret-access-key',
+                        variable: 'AWS_SECRET_ACCESS_KEY'
+                    )
+                ]) {
+                    sh '''
+                        set -e
 
-                    echo "===== Pushing Backend to ECR ====="
-                    docker push ${ECR_REGISTRY}/${BACKEND_IMAGE}:${IMAGE_TAG}
-                    docker push ${ECR_REGISTRY}/${BACKEND_IMAGE}:latest
+                        export AWS_DEFAULT_REGION=${AWS_REGION}
 
-                    echo "===== Pushing Frontend to ECR ====="
-                    docker push ${ECR_REGISTRY}/${FRONTEND_IMAGE}:${IMAGE_TAG}
-                    docker push ${ECR_REGISTRY}/${FRONTEND_IMAGE}:latest
+                        echo "===== Logging into AWS ECR ====="
+                        aws ecr get-login-password --region ${AWS_REGION} | \
+                          docker login \
+                          --username AWS \
+                          --password-stdin \
+                          ${ECR_REGISTRY}
 
-                    echo "===== ECR Push Completed Successfully ====="
-                '''
+                        echo "===== Pushing Backend to ECR ====="
+                        docker push ${ECR_REGISTRY}/${BACKEND_IMAGE}:${IMAGE_TAG}
+                        docker push ${ECR_REGISTRY}/${BACKEND_IMAGE}:latest
+
+                        echo "===== Pushing Frontend to ECR ====="
+                        docker push ${ECR_REGISTRY}/${FRONTEND_IMAGE}:${IMAGE_TAG}
+                        docker push ${ECR_REGISTRY}/${FRONTEND_IMAGE}:latest
+
+                        echo "===== ECR Push Completed Successfully ====="
+                    '''
+                }
             }
         }
 
         stage('Update Manifests for Argo CD') {
             steps {
-                withCredentials([usernamePassword(
-                    credentialsId: 'git-credentials',
-                    usernameVariable: 'GIT_USERNAME',
-                    passwordVariable: 'GIT_TOKEN'
-                )]) {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'git-credentials',
+                        usernameVariable: 'GIT_USERNAME',
+                        passwordVariable: 'GIT_TOKEN'
+                    )
+                ]) {
                     sh '''
                         set -e
-                        echo "===== Updating Kubernetes Manifests for GitOps ====="
+
+                        echo "===== Updating Kubernetes Manifests ====="
+
                         sed -i "s|image: .*/nutriflow-backend:.*|image: ${ECR_REGISTRY}/${BACKEND_IMAGE}:${IMAGE_TAG}|g" k8s/backend.yaml
+
                         sed -i "s|image: .*/nutriflow-frontend:.*|image: ${ECR_REGISTRY}/${FRONTEND_IMAGE}:${IMAGE_TAG}|g" k8s/frontend.yaml
 
                         echo "===== Committing Changes ====="
+
                         git config user.name "jenkins-bot"
                         git config user.email "jenkins@nutriflow.local"
+
                         git add k8s/backend.yaml k8s/frontend.yaml
 
                         if git diff --staged --quiet; then
                             echo "No changes in manifests to commit."
                         else
                             git commit -m "chore(gitops): update image tags to ${IMAGE_TAG} [skip ci]"
+
                             echo "===== Pushing to Git Repository ====="
+
                             git push https://${GIT_USERNAME}:${GIT_TOKEN}@${GIT_REPO_URL} HEAD:main
+
                             echo "===== Manifests Updated for Argo CD ====="
                         fi
                     '''
@@ -264,11 +295,12 @@ pipeline {
     post {
         always {
             sh '''
-                echo "===== Cleaning up Docker Containers & Images ====="
-                docker compose down || true
+                echo "===== Jenkins Workspace Cleanup ====="
                 docker image prune -f || true
             '''
-            archiveArtifacts artifacts: 'zap-reports/*.html', allowEmptyArchive: true
+
+            archiveArtifacts artifacts: 'zap-reports/*.html',
+                            allowEmptyArchive: true
         }
 
         success {
