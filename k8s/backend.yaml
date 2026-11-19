@@ -1,0 +1,71 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: nutriflow
+data:
+  PORT: "8000"
+  MONGO_URI: "mongodb://mongodb.nutriflow.svc.cluster.local:27017/nutriflow"
+  JWT_SECRET: "nutriflow_jwt_secret_key_12345"
+  FRONTEND_IMAGE_BASE_URL: "http://localhost:5173"
+  KITCHEN_LAT: "10.0170"
+  KITCHEN_LNG: "76.3440"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nutriflow-backend
+  namespace: nutriflow
+  labels:
+    app: nutriflow-backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: nutriflow-backend
+  template:
+    metadata:
+      labels:
+        app: nutriflow-backend
+    spec:
+      containers:
+        - name: backend
+          image: 208805232757.dkr.ecr.ap-south-1.amazonaws.com/nutriflow-backend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: backend-config
+          readinessProbe:
+            httpGet:
+              path: /nutriflow
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /nutriflow
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 15
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nutriflow-backend
+  namespace: nutriflow
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8000
+      targetPort: 8000
+  selector:
+    app: nutriflow-backend

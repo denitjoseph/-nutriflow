@@ -13,7 +13,8 @@ export const getAllPlans = async (req, res) => {
     const filter = { isActive: true };
 
     if (goal) {
-      filter.goal = { $regex: new RegExp(`^${goal}$`, 'i') };
+      const sanitizedGoal = String(goal).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      filter.goal = { $regex: `^${sanitizedGoal}$`, $options: 'i' };
     }
 
     if (tier) {

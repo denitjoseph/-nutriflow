@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 dotenv.config();
 
-import Plan from './subscription/models/Plan.js';
+import Plan from '../models/Plan.js';
 
 const plans = [
   // High Protein

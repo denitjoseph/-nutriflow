@@ -12,8 +12,20 @@ import profileRoutes from './profile/routes/profileRoutes.js';
 import paymentRoutes from './payment/routes/paymentRoutes.js';
 import aiRoutes from './ai/aiRoutes.js';
 import planRoutes from './plan/planRoutes.js';
+import client from 'prom-client';
+
+// Prometheus Metrics setup
+client.collectDefaultMetrics({ register: client.register });
 
 const app = express();
+
+app.disable('x-powered-by');
+
+app.use((req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    next();
+});
 
 app.use(cors());
 app.use(express.json());
@@ -31,6 +43,16 @@ app.use('/nutriflow/plans', planRoutes);
 
 app.get('/nutriflow', (req, res) => {
     res.json({ message: "Welcome to Nutriflow API" });
+});
+
+// Prometheus Metrics Scrape Endpoint
+app.get('/nutriflow/metrics', async (req, res) => {
+    try {
+        res.set('Content-Type', client.register.contentType);
+        res.end(await client.register.metrics());
+    } catch (ex) {
+        res.status(500).end(ex.message);
+    }
 });
 
 const connectDB = async () => {

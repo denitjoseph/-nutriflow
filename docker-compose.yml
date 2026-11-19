@@ -1,0 +1,103 @@
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: nutriflow-mongodb
+    restart: unless-stopped
+    # ports:
+    #   - "27018:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      - MONGO_INITDB_DATABASE=nutriflow
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - nutriflow-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: nutriflow-backend:latest
+    container_name: nutriflow-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - MONGO_URI=mongodb://mongodb:27017/nutriflow
+      - JWT_SECRET=nutriflow_jwt_secret_key_12345
+      - FRONTEND_IMAGE_BASE_URL=http://localhost:5173
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-1.5-flash}
+      - MESSAGECENTRAL_CUSTOMER_ID=${MESSAGECENTRAL_CUSTOMER_ID:-}
+      - MESSAGECENTRAL_AUTH_TOKEN=${MESSAGECENTRAL_AUTH_TOKEN:-}
+      - KITCHEN_LAT=10.0170
+      - KITCHEN_LNG=76.3440
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - nutriflow-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=http://localhost:8000/nutriflow
+    image: nutriflow-frontend:latest
+    container_name: nutriflow-frontend
+    restart: unless-stopped
+    ports:
+      - "5173:8080"
+    depends_on:
+      - backend
+    networks:
+      - nutriflow-network
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: nutriflow-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      - backend
+    networks:
+      - nutriflow-network
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: nutriflow-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    depends_on:
+      - prometheus
+    networks:
+      - nutriflow-network
+
+volumes:
+  mongodb_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+networks:
+  nutriflow-network:
+    driver: bridge

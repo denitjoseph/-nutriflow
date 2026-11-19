@@ -650,11 +650,11 @@ export const getAllOrdersService = async (query) => {
 
         // Filter by search (order number or user details)
         if (query.search && query.search.trim()) {
-            const searchRegex = new RegExp(query.search.trim(), 'i');
+            const sanitizedSearch = query.search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             filter.$or = [
-                { orderNumber: searchRegex },
-                { 'deliveryAddress.phone': searchRegex },
-                { 'deliveryAddress.fullName': searchRegex }
+                { orderNumber: { $regex: sanitizedSearch, $options: 'i' } },
+                { 'deliveryAddress.phone': { $regex: sanitizedSearch, $options: 'i' } },
+                { 'deliveryAddress.fullName': { $regex: sanitizedSearch, $options: 'i' } }
             ];
         }
 

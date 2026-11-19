@@ -37,3 +37,13 @@ output "backend_ecr_repository_url" {
   description = "Backend ECR repository URL"
   value       = aws_ecr_repository.backend.repository_url
 }
+
+output "jenkins_iam_role_name" {
+  description = "IAM Role Name for Jenkins EC2 Instance"
+  value       = aws_iam_role.jenkins_role.name
+}
+
+output "jenkins_iam_instance_profile_name" {
+  description = "IAM Instance Profile Name to attach to EC2"
+  value       = aws_iam_instance_profile.jenkins_instance_profile.name
+}
