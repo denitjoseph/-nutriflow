@@ -173,10 +173,10 @@ NutriFlow uses the **GitOps pattern**:
 
 ## 🌍 Infrastructure as Code (Terraform)
 
-All AWS infrastructure is managed under [`devops/terraform/`](./devops/terraform):
+All AWS infrastructure is managed under [`terraform/`](./terraform):
 
 ```text
-devops/terraform/
+terraform/
 ├── provider.tf     # AWS provider & minimum version constraints
 ├── variables.tf    # Regional and sizing parameters
 ├── vpc.tf          # Multi-AZ VPC, public/private subnets, NAT Gateway
@@ -188,7 +188,7 @@ devops/terraform/
 
 ### Deploying Infrastructure:
 ```bash
-cd devops/terraform
+cd terraform
 terraform init
 terraform apply -auto-approve
 ```
@@ -221,7 +221,7 @@ kubectl delete namespace argocd --wait=false
 sleep 60
 
 # 2. Destroy Terraform Resources
-cd devops/terraform
+cd terraform
 terraform destroy -auto-approve
 
 # 3. Terminate EC2 Jenkins Instance via AWS Console
