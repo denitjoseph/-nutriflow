@@ -41,7 +41,7 @@ export const sendOTP = async (phoneNumber) => {
     const authToken = process.env.MESSAGECENTRAL_AUTH_TOKEN;
 
     if (!customerId || !authToken) {
-        console.warn(`[Auth Dev Mode] Message Central credentials not found. Using local demo OTP: 123456 for phone: ${mobileNumber}`);
+        console.warn(`[Auth Dev Mode] Message Central credentials not found. Using local demo OTP: 1234 for phone: ${mobileNumber}`);
         return `dev-mock-${Date.now()}`;
     }
 
@@ -92,7 +92,7 @@ export const verifyOTP = async (verificationId, otp) => {
     const authToken = process.env.MESSAGECENTRAL_AUTH_TOKEN;
 
     if (!customerId || !authToken) {
-        if (verificationId.startsWith('dev-mock-') && (otp === '123456' || otp === '000000')) {
+        if (verificationId.startsWith('dev-mock-') && (otp === '1234' || otp === '123456' || otp === '0000' || otp === '000000')) {
             console.log(`[Auth Dev Mode] Successfully verified demo OTP: ${otp}`);
             return true;
         }
