@@ -92,7 +92,7 @@ export const verifyOTP = async (verificationId, otp) => {
     const authToken = process.env.MESSAGECENTRAL_AUTH_TOKEN;
 
     if (!customerId || !authToken) {
-        if (verificationId.startsWith('dev-mock-') && (otp === '1234' || otp === '123456' || otp === '0000' || otp === '000000')) {
+        if (otp === '1234' || otp === '123456' || otp === '0000' || otp === '000000') {
             console.log(`[Auth Dev Mode] Successfully verified demo OTP: ${otp}`);
             return true;
         }
