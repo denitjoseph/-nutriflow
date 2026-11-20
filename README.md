@@ -1,308 +1,235 @@
-# 🚀 Z-Hack 2k26
+# 🥗 NutriFlow — Cloud-Native Nutrition Platform & DevSecOps GitOps Pipeline
 
-Welcome to the official repository for your team's Zoople Hackathon project.
+[![CI/CD Pipeline](https://img.shields.io/badge/Jenkins-CI%2FCD-red?logo=jenkins)](https://jenkins.io)
+[![GitOps](https://img.shields.io/badge/GitOps-Argo%20CD-orange?logo=argo)](https://argoproj.github.io/cd/)
+[![Kubernetes](https://img.shields.io/badge/Kubernetes-AWS%20EKS-blue?logo=kubernetes)](https://aws.amazon.com/eks/)
+[![Terraform](https://img.shields.io/badge/IaC-Terraform-purple?logo=terraform)](https://terraform.io)
+[![Security](https://img.shields.io/badge/Security-SAST%20%7C%20SCA%20%7C%20DAST-green?logo=shield)](#-devsecops-security-pipeline)
+[![Monitoring](https://img.shields.io/badge/Monitoring-Prometheus%20%26%20Grafana-critical?logo=prometheus)](./monitoring/prometheus.yml)
 
-Each team has been assigned a **dedicated private GitLab repository**. Please read the instructions carefully before you begin development.
-
----
-
-# 📌 Repository Access
-
-You have been granted temporary access to this repository for the duration of the hackathon.
-
-> **Important**
->
-> Your GitLab repository access will automatically expire after the hackathon ends (20/07/2026). After the expiry time, you will no longer be able to clone, pull, or push to this repository.
+NutriFlow is a full-stack, cloud-native nutrition and meal subscription management platform built with enterprise-grade **DevSecOps**, **CI/CD automation**, **Infrastructure as Code (IaC)**, and **GitOps deployment** to **AWS EKS**.
 
 ---
 
-# 🚀 Getting Started
-
-## Step 1 – Accept the GitLab Invitation
-
-1. Open the invitation email received from GitLab.
-2. Accept the invitation.
-3. Sign in to your GitLab account.
-
----
-
-## Step 2 – Clone the Repository
-
-Open this repository in GitLab.
-
-Click **Code** and copy either the **HTTPS** or **SSH** clone URL.
-
-### Clone using HTTPS
-
-```bash
-git clone https://gitlab.com/jijojohn911/NurtiFlow.git
-```
-
-### Clone using SSH (Recommended)
-
-```bash
-git clone git@gitlab.com:<username>/<repository-name>.git
-```
-
-Navigate to the project directory:
-
-```bash
-cd <repository-name>
-```
-
-> Replace `<username>` and `<repository-name>` with the values shown in your GitLab repository.
+## 📑 Table of Contents
+- [Architecture Overview](#-architecture-overview)
+- [Tech Stack](#-tech-stack)
+- [DevSecOps Security Pipeline](#-devsecops-security-pipeline)
+- [Quick Start (Local Development)](#-quick-start-local-development)
+- [CI/CD Pipeline (Jenkins)](#-cicd-pipeline-jenkins)
+- [GitOps with Argo CD & EKS](#-gitops-with-argo-cd--eks)
+- [Infrastructure as Code (Terraform)](#-infrastructure-as-code-terraform)
+- [Monitoring & Observability](#-monitoring--observability)
+- [Clean Teardown (Cost Optimization)](#-clean-teardown-cost-optimization)
 
 ---
 
-## Step 3 – Verify the Repository
+## 🏛 Architecture Overview
 
-Check your current branch:
+```mermaid
+flowchart TD
+    subgraph Developer Workspace
+        DEV[Developer] -->|Git Push| GITHUB[GitHub Repository]
+    end
 
-```bash
-git branch
+    subgraph CI / DevSecOps Engine (Jenkins on EC2)
+        GITHUB -->|Webhook / Poll| JNK[Jenkins CI Pipeline]
+        JNK --> SG[Semgrep SAST]
+        JNK --> TRV_FS[Trivy SCA Filesystem]
+        JNK --> SQ[SonarQube Quality Gate]
+        JNK --> BUILD[Docker Multi-Stage Build]
+        JNK --> TRV_IMG[Trivy Image Scan]
+        JNK --> ZAP[OWASP ZAP DAST Scan]
+        JNK -->|Push Images| ECR[(AWS ECR)]
+        JNK -->|Update k8s/ Image Tag| GITHUB
+    end
+
+    subgraph GitOps CD (AWS EKS Cluster)
+        GITHUB -.->|Detects New Commit| ARGO[Argo CD]
+        ARGO -->|Syncs Manifests| EKS[Amazon EKS Cluster]
+        
+        subgraph NutriFlow Namespace
+            EKS --> FE_PODS[Frontend Pods: Nginx + React]
+            EKS --> BE_PODS[Backend Pods: Node.js Express]
+            EKS --> DB_POD[MongoDB Pod: 7.0]
+        end
+    end
+
+    subgraph Monitoring & Metrics
+        BE_PODS -->|Exposes /nutriflow/metrics| PROM[Prometheus]
+        PROM --> GRAF[Grafana Dashboards]
+    end
 ```
 
-Expected output:
+---
+
+## 🛠 Tech Stack
+
+| Domain | Technology | Purpose |
+| :--- | :--- | :--- |
+| **Frontend** | React 18, Vite, Tailwind CSS, Lucide Icons | Responsive meal planning & dietary tracking UI |
+| **Backend** | Node.js, Express.js, Mongoose | RESTful API, authentication, order processing |
+| **Database** | MongoDB 7.0 | Document store for meal plans, users, orders |
+| **Web Server** | Nginx Alpine (Slim, Non-Root) | Production static asset server & reverse proxy |
+| **CI / CD** | Jenkins (Declarative Pipeline on EC2) | Automated build, security scan, and push pipeline |
+| **SAST** | Semgrep | Static code analysis & vulnerability detection |
+| **SCA** | Aquasec Trivy | Open-source dependency & container image scanning |
+| **Code Quality** | SonarQube Scanner + Quality Gate | Code coverage, maintainability, and code smells |
+| **DAST** | OWASP ZAP (Baseline Scan) | Live application dynamic vulnerability scanner |
+| **Container Registry**| AWS ECR | Private Docker image registry with scan-on-push |
+| **GitOps** | Argo CD | Continuous delivery and state reconciliation in K8s |
+| **Orchestration**| Amazon EKS (Kubernetes v1.33) | Multi-AZ managed container orchestration |
+| **IaC** | Terraform (AWS Provider v6.x) | Automated VPC, Subnets, EKS, Node Groups, IAM |
+| **Observability** | Prometheus (`prom-client`) + Grafana | Application metrics scraping and visual dashboards |
+
+---
+
+## 🛡 DevSecOps Security Pipeline
+
+NutriFlow integrates security checks across every phase of development:
+
+1. **SAST (Static Application Security Testing)**:
+   * **Tool**: `semgrep/semgrep`
+   * **Scope**: Scans both backend and frontend source directories for ReDoS, injection, and insecure API usage.
+2. **SCA (Software Composition Analysis)**:
+   * **Tool**: `aquasec/trivy fs`
+   * **Scope**: Scans `package-lock.json` dependencies for HIGH and CRITICAL CVEs, skipping `node_modules` for performance.
+3. **Static Code Quality & Standards**:
+   * **Tool**: SonarQube Scanner
+   * **Scope**: Enforces quality gates for technical debt, duplication, and code smells.
+4. **Container Image Hardening**:
+   * **Tool**: `aquasec/trivy image`
+   * **Scope**: Inspects final Docker images (`nutriflow-backend` & `nutriflow-frontend`) for base OS vulnerabilities.
+5. **DAST (Dynamic Application Security Testing)**:
+   * **Tool**: `zaproxy/zap-stable`
+   * **Scope**: Runs automated baseline scans against live containers on port 8000 and 5173, exporting HTML reports.
+6. **Container Security Standards**:
+   * Both frontend and backend run as **non-root users** (`nginx` user on port 8080, `node` user on port 8000).
+   * Strict HTTP security headers configured: `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`.
+
+---
+
+## 💻 Quick Start (Local Development)
+
+### Prerequisites
+- Docker & Docker Compose
+- Node.js 20+
+
+### 1. Clone the Repository
+```bash
+git clone https://github.com/denitjoseph/-nutriflow.git
+cd -nutriflow
+```
+
+### 2. Run All Services with Docker Compose
+```bash
+docker compose up -d --build
+```
+
+### 3. Access Local Endpoints
+- **Frontend UI**: [http://localhost:5173](http://localhost:5173)
+- **Backend API**: [http://localhost:8000/nutriflow](http://localhost:8000/nutriflow)
+- **Metrics Endpoint**: [http://localhost:8000/nutriflow/metrics](http://localhost:8000/nutriflow/metrics)
+- **Prometheus UI**: [http://localhost:9090](http://localhost:9090)
+- **Grafana UI**: [http://localhost:3000](http://localhost:3000) *(Credentials: `admin` / `admin`)*
+
+---
+
+## ⚙ CI/CD Pipeline (Jenkins)
+
+The pipeline is fully automated in [`Jenkinsfile`](./Jenkinsfile) and includes 17 sequential stages:
 
 ```text
-* main
+1. Checkout                -> Checks out source code from Git
+2. Verify Environment      -> Verifies aws, docker, compose, and git versions
+3. Semgrep SAST Scan       -> Static security scan on source code
+4. Trivy SCA Scan          -> Scans project dependencies for CVEs
+5. SonarQube Analysis      -> Runs SonarQube scanner for code quality
+6. SonarQube Quality Gate  -> Verifies quality gate status
+7. Build Docker Images     -> Multi-stage builds for backend and frontend
+8. Trivy Image Scan        -> Vulnerability scanning on container images
+9. OWASP ZAP DAST Scan     -> Dynamic testing against live test containers
+10. Push Images to ECR     -> Logs into ECR via EC2 IAM Role and pushes tags
+11. Update Manifests       -> Updates k8s/ image tags with ${BUILD_NUMBER} and commits back to Git
 ```
 
 ---
 
-## Step 4 – Start Development
+## 🐙 GitOps with Argo CD & EKS
 
-You can now begin developing your solution.
+NutriFlow uses the **GitOps pattern**:
+1. When the Jenkins pipeline completes successfully, it automatically edits `k8s/backend.yaml` and `k8s/frontend.yaml` with the new `${BUILD_NUMBER}` image tag.
+2. Jenkins commits and pushes this change to the `main` branch with `[skip ci]`.
+3. **Argo CD** detects the updated commit and automatically reconciles the state on the AWS EKS cluster with zero downtime (Rolling Updates).
 
----
-
-## Step 5 – Save Your Changes
-
-Stage all modified files:
-
-```bash
-git add .
-```
-
-Commit your changes:
-
-```bash
-git commit -m "Describe your changes"
-```
-
-Example:
-
-```bash
-git commit -m "Implemented user authentication"
-```
+### Kubernetes Manifests (`k8s/`):
+- `namespace.yaml`: Creates dedicated `nutriflow` namespace.
+- `mongodb.yaml`: MongoDB 7.0 deployment and ClusterIP service.
+- `backend.yaml`: Scalable backend deployment (2 replicas) with readiness and liveness probes.
+- `frontend.yaml`: Nginx frontend deployment (2 replicas) and NodePort/LoadBalancer service.
+- `argocd-app.yaml`: Argo CD Application definition for automated continuous deployment.
 
 ---
 
-## Step 6 – Push Your Changes
+## 🌍 Infrastructure as Code (Terraform)
 
-Push your commits to GitLab:
-
-```bash
-git push
-```
-
----
-
-## Daily Workflow
-
-Before starting work each day:
-
-```bash
-git pull origin main
-```
-
-After making changes:
-
-```bash
-git add .
-git commit -m "Describe your changes"
-git push
-```
-
----
-
-# 📂 Repository Rules
-
-* This repository is assigned exclusively to your team.
-* Do not share repository access with anyone outside your team.
-* Commit your work regularly.
-* Push your latest changes before the submission deadline (20/07/2026).
-* Repository access will automatically expire after the hackathon.
-
----
-
-# 📋 Development Rules
-
-* Development must begin **only after the official hackathon starts**.
-* No development may begin before the official event date and time.
-* Any team violating this rule will be **automatically disqualified**.
-* Teams may use open-source libraries and frameworks.
-* Pre-built templates, UI kits, and APIs are permitted unless otherwise specified.
-* Plagiarism or submission of previously developed projects is strictly prohibited.
-* Participants are responsible for ensuring they have the necessary licenses for any third-party resources used.
-
----
-
-# 📦 Submission Requirements
-
-Each team must submit:
-
-* Project Name
-* Team Details
-* Problem Statement
-* Proposed Solution
-* Source Code Repository
-* Demo Video (if applicable)
-* Presentation (PPT/PDF)
-* Deployment Link (if available)
-
-> **Late submissions will not be considered.**
-
----
-
-# 🤝 Code of Conduct
-
-Participants must:
-
-* Respect fellow participants and organizers.
-* Maintain professional behavior throughout the event.
-* Avoid harassment, discrimination, or offensive language.
-* Follow all organizational policies.
-
-Violation of these rules may result in **immediate disqualification**.
-
----
-
-# 📜 Intellectual Property
-
-* Teams retain ownership of their original ideas unless otherwise specified by the organizer.
-* By participating, teams grant the organizer permission to showcase their project for internal demonstrations, learning, and promotional purposes.
-
----
-
-# ❌ Disqualification
-
-Teams may be disqualified for:
-
-* Plagiarism
-* Providing false information during registration
-* Use of unauthorized materials
-* Violation of event rules
-* Misconduct
-* Failure to submit before the deadline (20/07/2026)
-
----
-
-# 🆘 Support
-
-Participants may contact the organizing committee for:
-
-* Technical support
-* Event-related queries
-* Submission assistance
-* Rule clarifications
-
----
-
-# ⚖ Organizer's Decision
-
-* The decision of the judges and organizing committee will be final and binding.
-* Organizers reserve the right to amend the rules, schedule, or judging process if required.
-* Any updates will be communicated through official channels.
-
----
-
-# 📌 Git Workflow
+All AWS infrastructure is managed under [`devops/terraform/`](./devops/terraform):
 
 ```text
-Receive GitLab Invitation
-          │
-          ▼
-Accept Invitation
-          │
-          ▼
-Clone Repository
-          │
-          ▼
-Develop Your Project
-          │
-          ▼
-git add .
-          │
-          ▼
-git commit -m "Commit message"
-          │
-          ▼
-git push
-          │
-          ▼
-Submit Before Deadline
+devops/terraform/
+├── provider.tf     # AWS provider & minimum version constraints
+├── variables.tf    # Regional and sizing parameters
+├── vpc.tf          # Multi-AZ VPC, public/private subnets, NAT Gateway
+├── ecr.tf          # Private backend and frontend ECR repositories
+├── iam.tf          # EC2 instance profile, ECR PowerUser, & EKS admin policies
+├── eks.tf          # AWS EKS cluster, managed node groups, and addons
+└── outputs.tf      # Cluster endpoints, subnet IDs, and repository URLs
+```
+
+### Deploying Infrastructure:
+```bash
+cd devops/terraform
+terraform init
+terraform apply -auto-approve
+```
+
+### Connecting to Cluster:
+```bash
+aws eks update-kubeconfig --region ap-south-1 --name nutriflow-eks
+kubectl get nodes
 ```
 
 ---
 
-# 💻 Common Git Commands
+## 📊 Monitoring & Observability
 
-### Clone Repository
+- **Application Metrics**: Node.js `prom-client` exports Prometheus-compatible metrics at `/nutriflow/metrics` (HTTP request duration, memory usage, CPU usage, event loop lag).
+- **Prometheus**: Automatically scrapes the backend service every 15 seconds.
+- **Grafana**: Pre-configured dashboards for real-time visualization of container throughput and latency.
 
-```bash
-git clone <repository-url>
-```
+---
 
-### Check Current Branch
+## 🧹 Clean Teardown (Cost Optimization)
 
-```bash
-git branch
-```
-
-### View Repository Status
+To cleanly destroy all AWS resources and avoid unnecessary charges:
 
 ```bash
-git status
-```
+# 1. Delete Kubernetes Load Balancers & Namespaces first
+kubectl delete svc argocd-server -n argocd
+kubectl delete namespace nutriflow --wait=false
+kubectl delete namespace argocd --wait=false
+sleep 60
 
-### Pull Latest Changes
+# 2. Destroy Terraform Resources
+cd devops/terraform
+terraform destroy -auto-approve
 
-```bash
-git pull origin main
-```
-
-### Stage Changes
-
-```bash
-git add .
-```
-
-### Commit Changes
-
-```bash
-git commit -m "Your commit message"
-```
-
-### Push Changes
-
-```bash
-git push
-```
-
-### View Commit History
-
-```bash
-git log --oneline
+# 3. Terminate EC2 Jenkins Instance via AWS Console
 ```
 
 ---
 
-# 📅 Hackathon Reminder
+## 👥 Contributors & Acknowledgements
 
-* Commit your work frequently.
-* Push your code regularly to avoid losing progress.
-* Ensure your final code is pushed before the submission deadline (20/07/2026).
-* Your repository access will expire automatically after the hackathon concludes.
-
-Good luck, and happy coding! 🚀
+- **Repository Owner**: [denitjoseph](https://github.com/denitjoseph)
+- **Project**: NutriFlow Cloud-Native Platform
